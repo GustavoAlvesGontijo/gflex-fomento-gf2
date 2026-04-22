@@ -1,7 +1,3 @@
-[server]
-port = 8503
-headless = true
-
 [theme]
 base = "light"
 primaryColor = "#004A9D"
