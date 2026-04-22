@@ -311,6 +311,22 @@ with st.sidebar:
         "Faixa de valor (R$)",
         min_value=val_min, max_value=val_max,
         value=(val_min, val_max), step=1000.0,
+        format="R$ %d",
+    )
+    st.caption(f"De **{_fmt_brl(faixa[0], sinal=False)}** até **{_fmt_brl(faixa[1], sinal=False)}**")
+
+    st.markdown("#### Excluir pedidos")
+    nomes_opps = df.sort_values("valor", ascending=False)["nome"].tolist()
+    def _label_opp(n: str) -> str:
+        r = df[df["nome"] == n].iloc[0]
+        return f"{r['cliente']} — {_fmt_brl(r['valor'], sinal=False)}"
+    excluir = st.multiselect(
+        "Remover das visualizações",
+        options=nomes_opps,
+        default=[],
+        format_func=_label_opp,
+        help="Útil para esconder outliers (ex: Lopes Energy) e ver os demais. Afeta todas as abas.",
+        key="f_excluir",
     )
 
 
@@ -320,6 +336,8 @@ if owner_f != "Todos":
 if codigo_f != "Todos":
     df_f = df_f[df_f["codigo_produto"] == codigo_f]
 df_f = df_f[(df_f["valor"] >= faixa[0]) & (df_f["valor"] <= faixa[1])]
+if excluir:
+    df_f = df_f[~df_f["nome"].isin(excluir)]
 
 
 def _resumo_opp(row, params) -> dict:
@@ -646,7 +664,7 @@ with tab_compara:
     st.markdown("### Filtrar e selecionar pedidos")
     st.caption("Filtros específicos desta aba (não alteram a Tabela & Totais).")
 
-    cf1, cf2, cf3 = st.columns([1.3, 1.3, 1])
+    cf1, cf2 = st.columns([1, 2])
     with cf1:
         codigos_cp = ["Todos"] + sorted([c for c in calc_df["codigo"].dropna().unique() if c and c != "—"])
         codigo_cp = st.selectbox("Código do produto", codigos_cp, key="cp_codigo")
@@ -656,11 +674,9 @@ with tab_compara:
         faixa_cp = st.slider("Faixa de valor (R$)",
                              min_value=v_min_cp, max_value=v_max_cp,
                              value=(v_min_cp, v_max_cp),
-                             step=1000.0, key="cp_faixa")
-    with cf3:
-        st.write("")
-        st.write("")
-        st.caption(f"{len(calc_df)} opp(s) antes · filtrando…")
+                             step=1000.0, key="cp_faixa",
+                             format="R$ %d")
+        st.caption(f"De **{_fmt_brl(faixa_cp[0], sinal=False)}** até **{_fmt_brl(faixa_cp[1], sinal=False)}**")
 
     df_cp = calc_df.copy()
     if codigo_cp != "Todos":
@@ -679,10 +695,17 @@ with tab_compara:
         if st.button("Selecionar visíveis", width="stretch"):
             for n in df_cp["nome"]:
                 st.session_state.sel_multi.add(n)
+                # força a caixa de seleção a aparecer marcada no rerun
+                st.session_state[f"ck_cp_{n}"] = True
             st.rerun()
     with cbt2:
         if st.button("Limpar seleção", width="stretch"):
             st.session_state.sel_multi = set()
+            # desmarca todos os checkboxes visíveis
+            for n in calc_df["nome"]:
+                key_ck = f"ck_cp_{n}"
+                if key_ck in st.session_state:
+                    st.session_state[key_ck] = False
             st.rerun()
 
     # cards sintéticos (4 colunas)
